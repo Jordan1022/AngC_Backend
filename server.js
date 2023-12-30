@@ -4,13 +4,20 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const sequelize = require('./sequelize');
-const BlogPost = require('./models/BlogPost');
+const { initializeDatabase } = require('./database');
 
-sequelize.sync().then(() => {
-    app.listen(port, () => {
-        console.log(`Server running on port ${port}`);
-    });
+// Database connection
+let db;
+initializeDatabase().then(connection => {
+    db = connection;
 });
+
+sequelize.sync({ force: false }).then(() => {
+    console.log("Database synced");
+    app.listen(port, () => {
+        console.log(`Server running on http://localhost:${port}`);
+    });
+}).catch(err => console.error("Sync failed: ", err));
 
 const app = express();
 const port = 3000;
@@ -22,42 +29,73 @@ app.listen(port, () => {
     console.log(`Blog backend listening at http://localhost:${port}`);
 });
 
-// backend/server.js
-// ... previous code ...
-
-const { initializeDatabase } = require('./database');
-
-// Database connection
-let db;
-initializeDatabase().then(connection => {
-    db = connection;
-});
-
 // Routes
+const BlogPost = require('./models/BlogPost');
 
 app.get('/api/posts', async (req, res) => {
     try {
         const posts = await BlogPost.findAll();
         res.json(posts);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        res.status(500).send(err.message);
     }
 });
 
-app.post('/api/posts', (req, res) => {
-    // Create a new blog post
+app.post('/api/posts', async (req, res) => {
+    try {
+        const newPost = await BlogPost.create(req.body);
+        res.status(201).json(newPost);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
-app.get('/api/posts/:id', (req, res) => {
-    // Retrieve a single blog post
+
+app.get('/api/posts/:id', async (req, res) => {
+    try {
+        const post = await BlogPost.findByPk(req.params.id);
+        if (post) {
+            res.json(post);
+        } else {
+            res.status(404).send('Post not found');
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
-app.put('/api/posts/:id', (req, res) => {
-    // Update a blog post
+
+app.put('/api/posts/:id', async (req, res) => {
+    try {
+        const updated = await BlogPost.update(req.body, {
+            where: { id: req.params.id }
+        });
+        if (updated) {
+            res.json({ message: 'Post updated successfully' });
+        } else {
+            res.status(404).send('Post not found');
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
-app.delete('/api/posts/:id', (req, res) => {
-    // Delete a blog post
+
+app.delete('/api/posts/:id', async (req, res) => {
+    try {
+        const deleted = await BlogPost.destroy({
+            where: { id: req.params.id }
+        });
+        if (deleted) {
+            res.json({ message: 'Post deleted successfully' });
+        } else {
+            res.status(404).send('Post not found');
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
+
+
 
 // ... rest of the server code .
