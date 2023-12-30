@@ -3,6 +3,14 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const sequelize = require('./sequelize');
+const BlogPost = require('./models/BlogPost');
+
+sequelize.sync().then(() => {
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
+});
 
 const app = express();
 const port = 3000;
@@ -26,8 +34,14 @@ initializeDatabase().then(connection => {
 });
 
 // Routes
-app.get('/api/posts', (req, res) => {
-    // Retrieve all blog posts
+
+app.get('/api/posts', async (req, res) => {
+    try {
+        const posts = await BlogPost.findAll();
+        res.json(posts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.post('/api/posts', (req, res) => {
